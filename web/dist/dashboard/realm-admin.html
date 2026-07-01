@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Realm Admin Dashboard – SaaS IAM</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="../css/global.css" />
+  <link rel="stylesheet" href="../css/dashboard.css" />
+</head>
+<body>
+<div class="app-shell">
+  <header class="topbar">
+    <div class="topbar-brand">SaaS IAM</div>
+    <div class="topbar-right">
+      <span class="topbar-realm-badge" id="realm-badge-label">🏢 Loading…</span>
+      <div class="dropdown">
+        <div class="topbar-avatar" id="avatar-btn" tabindex="0" role="button">RA</div>
+        <div class="dropdown-menu" id="user-menu" hidden>
+          <div style="padding:8px 12px;border-bottom:1px solid var(--clr-border);margin-bottom:4px">
+            <div style="font-weight:600;font-size:.85rem" id="menu-username">Realm Admin</div>
+            <div style="font-size:.75rem;color:var(--clr-text-faint)" id="menu-email"></div>
+          </div>
+          <button class="dropdown-item" onclick="showPage('profile')">👤 My Profile</button>
+          <button class="dropdown-item danger" id="btn-logout">🚪 Sign out</button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <nav class="sidebar">
+    <div class="sidebar-section">
+      <div class="sidebar-label">Overview</div>
+      <button class="nav-item active" data-page="dashboard">📊 Dashboard</button>
+    </div>
+    <div class="sidebar-divider"></div>
+    <div class="sidebar-section">
+      <div class="sidebar-label">User Management</div>
+      <button class="nav-item" data-page="users">👥 Users</button>
+      <button class="nav-item" data-page="create-user">➕ Create User</button>
+    </div>
+    <div class="sidebar-section">
+      <div class="sidebar-label">Access Control</div>
+      <button class="nav-item" data-page="groups">📁 Groups</button>
+      <button class="nav-item" data-page="roles">🎭 Roles</button>
+    </div>
+    <div class="sidebar-divider"></div>
+    <div class="sidebar-section">
+      <div class="sidebar-label">Security</div>
+      <button class="nav-item" data-page="sessions">🔒 Sessions</button>
+      <button class="nav-item" data-page="audit">📋 Audit Logs</button>
+    </div>
+    <div class="sidebar-section">
+      <div class="sidebar-label">Account</div>
+      <button class="nav-item" data-page="profile">👤 My Profile</button>
+    </div>
+  </nav>
+
+  <main class="main-content" id="main-content">
+
+    <!-- Dashboard -->
+    <section id="page-dashboard">
+      <div class="page-header">
+        <div><h1 class="page-title">Realm Dashboard</h1><p class="page-subtitle" id="dashboard-subtitle">Loading realm info…</p></div>
+        <button class="btn btn-primary" onclick="showPage('create-user')">➕ New User</button>
+      </div>
+      <div class="stats-grid">
+        <div class="stat-card" data-color="blue"><div class="stat-label">Total Users</div><div class="stat-value" id="stat-users">–</div><div class="stat-icon">👥</div></div>
+        <div class="stat-card" data-color="green"><div class="stat-label">Groups</div><div class="stat-value" id="stat-groups">–</div><div class="stat-icon">📁</div></div>
+        <div class="stat-card" data-color="cyan"><div class="stat-label">Roles</div><div class="stat-value" id="stat-roles">–</div><div class="stat-icon">🎭</div></div>
+        <div class="stat-card" data-color="yellow"><div class="stat-label">Realm</div><div class="stat-value" id="stat-realm" style="font-size:1.1rem">–</div><div class="stat-icon">🏢</div></div>
+      </div>
+      <div class="card mt-2">
+        <div class="flex-between" style="margin-bottom:16px"><h3>Recent Users</h3><button class="btn btn-sm btn-secondary" onclick="showPage('users');loadUsers(0)">View all</button></div>
+        <div class="table-wrapper">
+          <table><thead><tr><th>Name</th><th>Email</th><th>Username</th><th>Status</th><th>Actions</th></tr></thead>
+          <tbody id="dashboard-users-body"><tr><td colspan="5"><div class="skeleton skeleton-row"></div></td></tr></tbody></table>
+        </div>
+      </div>
+    </section>
+
+    <!-- Users -->
+    <section id="page-users" hidden>
+      <div class="page-header"><div><h1 class="page-title">Users</h1><p class="page-subtitle">Manage users in your realm</p></div><button class="btn btn-primary" onclick="showPage('create-user')">➕ New User</button></div>
+      <div class="toolbar">
+        <div class="search-input-wrapper">
+          <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+          <input id="user-search" class="search-input" type="search" placeholder="Search users…" />
+        </div>
+      </div>
+      <div class="table-wrapper">
+        <table><thead><tr><th>Name</th><th>Email</th><th>Username</th><th>Status</th><th>Created</th><th>Actions</th></tr></thead>
+        <tbody id="users-body"></tbody></table>
+      </div>
+      <div id="users-pagination" class="pagination"></div>
+    </section>
+
+    <!-- Create User -->
+    <section id="page-create-user" hidden>
+      <div class="page-header"><h1 class="page-title">Create User</h1></div>
+      <div class="card" style="max-width:560px">
+        <div id="cu-alert" class="alert alert-error" hidden></div>
+        <div id="cu-success" class="alert alert-success" hidden></div>
+        <form id="create-user-form" novalidate>
+          <div class="modal-body">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+              <div class="form-group"><label class="form-label" for="cu-firstname">First Name</label><input id="cu-firstname" class="form-input" type="text" placeholder="John" /></div>
+              <div class="form-group"><label class="form-label" for="cu-lastname">Last Name</label><input id="cu-lastname" class="form-input" type="text" placeholder="Doe" /></div>
+            </div>
+            <div class="form-group"><label class="form-label" for="cu-email">Email *</label><input id="cu-email" class="form-input" type="email" placeholder="john@example.com" required /></div>
+            <div class="form-group"><label class="form-label" for="cu-username">Username</label><input id="cu-username" class="form-input" type="text" placeholder="Leave blank to use email" /></div>
+            <div class="form-group"><label class="form-label" for="cu-password">Initial Password *</label><input id="cu-password" class="form-input" type="password" placeholder="Min 8 characters" required /></div>
+            <div class="form-group" style="flex-direction:row;align-items:center;gap:10px">
+              <input id="cu-temporary" type="checkbox" checked style="width:16px;height:16px;accent-color:var(--clr-primary)" />
+              <label for="cu-temporary" style="font-size:.875rem;cursor:pointer">Force password change on first login</label>
+            </div>
+            <div class="form-group" style="flex-direction:row;align-items:center;gap:10px">
+              <input id="cu-enabled" type="checkbox" checked style="width:16px;height:16px;accent-color:var(--clr-primary)" />
+              <label for="cu-enabled" style="font-size:.875rem;cursor:pointer">Enable account immediately</label>
+            </div>
+          </div>
+          <div class="modal-footer" style="margin-top:24px">
+            <button type="submit" class="btn btn-primary" id="cu-submit">
+              <span id="cu-btn-text">Create User</span>
+              <div id="cu-spinner" class="spinner" hidden></div>
+            </button>
+          </div>
+        </form>
+      </div>
+    </section>
+
+    <!-- Groups -->
+    <section id="page-groups" hidden>
+      <div class="page-header"><div><h1 class="page-title">Groups</h1><p class="page-subtitle">Organise users into groups</p></div>
+        <button class="btn btn-primary" id="btn-create-group">➕ New Group</button>
+      </div>
+      <div class="table-wrapper">
+        <table><thead><tr><th>Group Name</th><th>Path</th><th>Actions</th></tr></thead>
+        <tbody id="groups-body"></tbody></table>
+      </div>
+    </section>
+
+    <!-- Roles -->
+    <section id="page-roles" hidden>
+      <div class="page-header"><div><h1 class="page-title">Roles</h1><p class="page-subtitle">Manage realm-level roles</p></div>
+        <button class="btn btn-primary" id="btn-create-role">➕ New Role</button>
+      </div>
+      <div class="table-wrapper">
+        <table><thead><tr><th>Role Name</th><th>Description</th><th>Composite</th><th>Actions</th></tr></thead>
+        <tbody id="roles-body"></tbody></table>
+      </div>
+    </section>
+
+    <!-- Sessions -->
+    <section id="page-sessions" hidden>
+      <div class="page-header"><h1 class="page-title">Active Sessions</h1><p class="page-subtitle">View and terminate user sessions</p></div>
+      <div class="form-group" style="max-width:320px;margin-bottom:20px">
+        <label class="form-label" for="session-user-id">Look up sessions for User ID</label>
+        <div class="flex gap-1">
+          <input id="session-user-id" class="form-input" type="text" placeholder="Keycloak user UUID" />
+          <button class="btn btn-secondary" id="btn-load-sessions">Load</button>
+        </div>
+      </div>
+      <div class="table-wrapper">
+        <table><thead><tr><th>Session ID</th><th>IP Address</th><th>Started</th><th>Last Active</th><th>Actions</th></tr></thead>
+        <tbody id="sessions-body"><tr><td colspan="5" style="text-align:center;padding:32px;color:var(--clr-text-faint)">Enter a user ID and click Load</td></tr></tbody></table>
+      </div>
+    </section>
+
+    <!-- Audit -->
+    <section id="page-audit" hidden>
+      <div class="page-header"><h1 class="page-title">Audit Logs</h1><p class="page-subtitle">Actions taken within your realm</p></div>
+      <div class="table-wrapper">
+        <table><thead><tr><th>Time</th><th>Actor</th><th>Action</th><th>Resource</th><th>Status</th></tr></thead>
+        <tbody id="realm-audit-body"></tbody></table>
+      </div>
+      <div id="realm-audit-pagination" class="pagination"></div>
+    </section>
+
+    <!-- Profile -->
+    <section id="page-profile" hidden>
+      <div class="page-header"><h1 class="page-title">My Profile</h1></div>
+      <div class="card" style="max-width:480px">
+        <div id="profile-alert" class="alert alert-error" hidden></div>
+        <div id="profile-success" class="alert alert-success" hidden></div>
+        <form id="profile-form" novalidate>
+          <div class="modal-body">
+            <div class="form-group"><label class="form-label">Email</label><input id="pf-email" class="form-input" type="email" disabled style="opacity:.6" /></div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+              <div class="form-group"><label class="form-label" for="pf-firstname">First Name</label><input id="pf-firstname" class="form-input" type="text" /></div>
+              <div class="form-group"><label class="form-label" for="pf-lastname">Last Name</label><input id="pf-lastname" class="form-input" type="text" /></div>
+            </div>
+          </div>
+          <div class="modal-footer" style="margin-top:20px"><button type="submit" class="btn btn-primary">Save Changes</button></div>
+        </form>
+        <div class="sidebar-divider" style="margin:24px 0"></div>
+        <h3 style="margin-bottom:16px">Change Password</h3>
+        <form id="password-form" novalidate>
+          <div class="form-group"><label class="form-label" for="pf-new-pwd">New Password</label><input id="pf-new-pwd" class="form-input" type="password" placeholder="Min 8 characters" /></div>
+          <div class="modal-footer" style="margin-top:16px"><button type="submit" class="btn btn-secondary">Update Password</button></div>
+        </form>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<!-- Confirm modal -->
+<div id="confirm-modal" class="modal-overlay" hidden role="dialog" aria-modal="true">
+  <div class="modal">
+    <div class="modal-header"><h2 class="modal-title" id="confirm-title">Confirm</h2></div>
+    <p id="confirm-message" style="color:var(--clr-text-muted)"></p>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" id="confirm-cancel">Cancel</button>
+      <button class="btn btn-danger" id="confirm-ok">Confirm</button>
+    </div>
+  </div>
+</div>
+
+<!-- Create group modal -->
+<div id="group-modal" class="modal-overlay" hidden role="dialog" aria-modal="true">
+  <div class="modal">
+    <div class="modal-header"><h2 class="modal-title">Create Group</h2><button class="btn btn-icon btn-secondary" id="group-modal-close">✕</button></div>
+    <div class="modal-body">
+      <div class="form-group"><label class="form-label" for="new-group-name">Group Name *</label><input id="new-group-name" class="form-input" type="text" placeholder="e.g. developers" /></div>
+    </div>
+    <div class="modal-footer"><button class="btn btn-secondary" id="group-modal-cancel">Cancel</button><button class="btn btn-primary" id="group-modal-ok">Create</button></div>
+  </div>
+</div>
+
+<!-- Create role modal -->
+<div id="role-modal" class="modal-overlay" hidden role="dialog" aria-modal="true">
+  <div class="modal">
+    <div class="modal-header"><h2 class="modal-title">Create Role</h2><button class="btn btn-icon btn-secondary" id="role-modal-close">✕</button></div>
+    <div class="modal-body">
+      <div class="form-group"><label class="form-label" for="new-role-name">Role Name *</label><input id="new-role-name" class="form-input" type="text" placeholder="e.g. manager" /></div>
+      <div class="form-group"><label class="form-label" for="new-role-desc">Description</label><input id="new-role-desc" class="form-input" type="text" placeholder="Optional description" /></div>
+    </div>
+    <div class="modal-footer"><button class="btn btn-secondary" id="role-modal-cancel">Cancel</button><button class="btn btn-primary" id="role-modal-ok">Create</button></div>
+  </div>
+</div>
+
+<script src="../js/api.js"></script>
+<script src="../js/dashboard-common.js"></script>
+<script src="../js/realm-admin.js"></script>
+</body>
+</html>

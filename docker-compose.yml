@@ -1,0 +1,140 @@
+version: "3.9"
+
+# ── Multi-Tenant SaaS IAM – Docker Compose Stack ──────────────────────────────
+# Services:
+#   keycloak  – Keycloak IAM server
+#   postgres  – PostgreSQL database (shared by Keycloak + application)
+#   redis     – Redis session store
+#   app       – Go SaaS IAM backend
+#
+# Quick start:
+#   docker compose up -d
+#   Visit http://localhost:8080 for the app, http://localhost:8081 for Keycloak
+
+networks:
+  iam-net:
+    driver: bridge
+
+volumes:
+  postgres-data:
+  redis-data:
+  keycloak-data:
+
+services:
+
+  # ── PostgreSQL ─────────────────────────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: saas-iam-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB:       saas_iam
+      POSTGRES_USER:     iam_user
+      POSTGRES_PASSWORD: iam_secret
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - iam-net
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U iam_user -d saas_iam"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── Redis ──────────────────────────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: saas-iam-redis
+    restart: unless-stopped
+    command: redis-server --save 20 1 --loglevel warning --requirepass redis_secret
+    volumes:
+      - redis-data:/data
+    networks:
+      - iam-net
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "redis_secret", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── Keycloak ───────────────────────────────────────────────────────────────
+  keycloak:
+    image: quay.io/keycloak/keycloak:24.0
+    container_name: saas-iam-keycloak
+    restart: unless-stopped
+    command: start-dev  # use 'start' (with TLS) for production
+    environment:
+      KC_DB:              postgres
+      KC_DB_URL:          jdbc:postgresql://postgres:5432/saas_iam
+      KC_DB_USERNAME:     iam_user
+      KC_DB_PASSWORD:     iam_secret
+      KC_DB_SCHEMA:       keycloak
+      KEYCLOAK_ADMIN:     admin
+      KEYCLOAK_ADMIN_PASSWORD: Admin1234!
+      KC_HOSTNAME:        localhost
+      KC_HOSTNAME_PORT:   8081
+      KC_HTTP_PORT:       8081
+      KC_HTTP_ENABLED:    "true"
+      KC_HEALTH_ENABLED:  "true"
+    networks:
+      - iam-net
+    ports:
+      - "8081:8081"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8081/health/ready || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 60s
+
+  # ── Go Application ──────────────────────────────────────────────────────────
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: saas-iam-app
+    restart: unless-stopped
+    environment:
+      ENV:                   development
+      PORT:                  8080
+      LOG_LEVEL:             info
+      BASE_DOMAIN:           localhost
+      DATABASE_URL:          postgres://iam_user:iam_secret@postgres:5432/saas_iam?sslmode=disable
+      REDIS_URL:             redis://:redis_secret@redis:6379/0
+      KEYCLOAK_URL:          http://keycloak:8081
+      KEYCLOAK_ADMIN_USER:   admin
+      KEYCLOAK_ADMIN_PASS:   Admin1234!
+      KEYCLOAK_MASTER_REALM: master
+      KEYCLOAK_CLIENT_ID:    saas-iam-backend
+      KEYCLOAK_CLIENT_SECRET: change-me-in-production
+      JWT_SECRET:            change-me-in-production-32-chars-minimum
+      SESSION_TTL:           8h
+      ALLOWED_ORIGINS:       "http://localhost:8080,http://localhost:3000"
+      RATE_LIMIT_REQUESTS:   100
+      RATE_LIMIT_WINDOW:     1m
+      AUDIT_ENABLED:         "true"
+    networks:
+      - iam-net
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      keycloak:
+        condition: service_healthy
+    volumes:
+      - ./web/dist:/app/web/dist:ro  # serve frontend from host for dev
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8080/healthz || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5

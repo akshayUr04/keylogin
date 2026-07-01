@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Super Admin Dashboard – SaaS IAM</title>
+  <meta name="description" content="Super Admin control panel for managing all tenants and users across the SaaS IAM platform." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="../css/global.css" />
+  <link rel="stylesheet" href="../css/dashboard.css" />
+</head>
+<body>
+
+<div class="app-shell" id="app-shell">
+
+  <!-- ── Top bar ─────────────────────────────────────────── -->
+  <header class="topbar" role="banner">
+    <div class="topbar-brand">
+      <svg width="32" height="32" viewBox="0 0 48 48" fill="none" aria-hidden="true">
+        <rect width="48" height="48" rx="12" fill="url(#tg1)"/>
+        <circle cx="24" cy="24" r="8" fill="white" opacity="0.9"/>
+        <circle cx="24" cy="24" r="4" fill="url(#tg1)"/>
+        <defs>
+          <linearGradient id="tg1" x1="0" y1="0" x2="48" y2="48">
+            <stop offset="0%" stop-color="#6366f1"/><stop offset="100%" stop-color="#8b5cf6"/>
+          </linearGradient>
+        </defs>
+      </svg>
+      SaaS IAM
+    </div>
+    <div class="topbar-right">
+      <span class="topbar-realm-badge">🌐 Master Realm</span>
+      <div class="dropdown">
+        <div class="topbar-avatar" id="avatar-btn" tabindex="0" role="button" aria-haspopup="true" aria-expanded="false">SA</div>
+        <div class="dropdown-menu" id="user-menu" hidden>
+          <div style="padding:8px 12px;border-bottom:1px solid var(--clr-border);margin-bottom:4px;">
+            <div style="font-weight:600;font-size:0.85rem;" id="menu-username">Super Admin</div>
+            <div style="font-size:0.75rem;color:var(--clr-text-faint);" id="menu-email"></div>
+          </div>
+          <button class="dropdown-item" id="btn-profile">👤 My Profile</button>
+          <button class="dropdown-item danger" id="btn-logout">🚪 Sign out</button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- ── Sidebar ─────────────────────────────────────────── -->
+  <nav class="sidebar" id="sidebar" role="navigation" aria-label="Main navigation">
+    <div class="sidebar-section">
+      <div class="sidebar-label">Overview</div>
+      <button class="nav-item active" data-page="dashboard" id="nav-dashboard">
+        <span class="nav-icon">📊</span> Dashboard
+      </button>
+    </div>
+    <div class="sidebar-divider"></div>
+    <div class="sidebar-section">
+      <div class="sidebar-label">Tenant Management</div>
+      <button class="nav-item" data-page="tenants" id="nav-tenants">
+        <span class="nav-icon">🏢</span> Tenants
+      </button>
+      <button class="nav-item" data-page="create-tenant" id="nav-create-tenant">
+        <span class="nav-icon">➕</span> Create Tenant
+      </button>
+    </div>
+    <div class="sidebar-divider"></div>
+    <div class="sidebar-section">
+      <div class="sidebar-label">Platform</div>
+      <button class="nav-item" data-page="audit" id="nav-audit">
+        <span class="nav-icon">📋</span> Audit Logs
+      </button>
+    </div>
+  </nav>
+
+  <!-- ── Main content ────────────────────────────────────── -->
+  <main class="main-content" id="main-content" role="main">
+
+    <!-- Dashboard page -->
+    <section id="page-dashboard">
+      <div class="page-header">
+        <div>
+          <h1 class="page-title">Platform Overview</h1>
+          <p class="page-subtitle">Monitor all tenants and platform health</p>
+        </div>
+        <button class="btn btn-primary" id="btn-new-tenant">
+          <span>➕</span> New Tenant
+        </button>
+      </div>
+      <div class="stats-grid" id="stats-grid">
+        <div class="stat-card" data-color="blue">
+          <div class="stat-label">Total Tenants</div>
+          <div class="stat-value" id="stat-tenants">–</div>
+          <div class="stat-delta" id="stat-tenants-sub">Loading…</div>
+          <div class="stat-icon">🏢</div>
+        </div>
+        <div class="stat-card" data-color="green">
+          <div class="stat-label">Active Tenants</div>
+          <div class="stat-value" id="stat-active">–</div>
+          <div class="stat-delta">Fully operational</div>
+          <div class="stat-icon">✅</div>
+        </div>
+        <div class="stat-card" data-color="yellow">
+          <div class="stat-label">Suspended</div>
+          <div class="stat-value" id="stat-suspended">–</div>
+          <div class="stat-delta">Require attention</div>
+          <div class="stat-icon">⏸️</div>
+        </div>
+        <div class="stat-card" data-color="cyan">
+          <div class="stat-label">Platform Status</div>
+          <div class="stat-value" style="font-size:1.2rem;color:var(--clr-success)">● Healthy</div>
+          <div class="stat-delta">All systems operational</div>
+          <div class="stat-icon">⚡</div>
+        </div>
+      </div>
+
+      <!-- Recent tenants table -->
+      <div class="card mt-2">
+        <div class="flex-between" style="margin-bottom:16px">
+          <h3>Recent Tenants</h3>
+          <button class="btn btn-secondary btn-sm" id="btn-view-all-tenants">View all</button>
+        </div>
+        <div class="table-wrapper">
+          <table id="dashboard-tenants-table">
+            <thead>
+              <tr>
+                <th>Tenant</th><th>Realm</th><th>Plan</th><th>Status</th><th>Created</th><th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="dashboard-tenants-body">
+              <tr><td colspan="6" class="text-center"><div class="skeleton skeleton-row" style="margin:8px"></div></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- Tenants list page -->
+    <section id="page-tenants" hidden>
+      <div class="page-header">
+        <div>
+          <h1 class="page-title">Tenants</h1>
+          <p class="page-subtitle">Manage all customer tenants on the platform</p>
+        </div>
+        <button class="btn btn-primary" id="btn-create-tenant-from-list">➕ New Tenant</button>
+      </div>
+      <div class="toolbar">
+        <div class="search-input-wrapper">
+          <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+            <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+          </svg>
+          <input id="tenant-search" class="search-input" type="search" placeholder="Search tenants…" aria-label="Search tenants" />
+        </div>
+        <select id="tenant-status-filter" class="form-select" aria-label="Filter by status">
+          <option value="">All statuses</option>
+          <option value="active">Active</option>
+          <option value="suspended">Suspended</option>
+        </select>
+      </div>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr>
+              <th>Tenant Name</th><th>Realm</th><th>Domain</th><th>Plan</th>
+              <th>Users</th><th>Status</th><th>Created</th><th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="tenants-body"></tbody>
+        </table>
+      </div>
+      <div id="tenants-pagination" class="pagination"></div>
+    </section>
+
+    <!-- Create tenant page -->
+    <section id="page-create-tenant" hidden>
+      <div class="page-header">
+        <div>
+          <h1 class="page-title">Create New Tenant</h1>
+          <p class="page-subtitle">Provisions a new Keycloak realm and tenant record</p>
+        </div>
+      </div>
+      <div class="card" style="max-width:600px">
+        <div id="create-tenant-alert" class="alert alert-error" hidden></div>
+        <div id="create-tenant-success" class="alert alert-success" hidden></div>
+        <form id="create-tenant-form" novalidate>
+          <div class="modal-body">
+            <div class="form-group">
+              <label class="form-label" for="ct-name">Display Name *</label>
+              <input id="ct-name" class="form-input" type="text" placeholder="Acme Corporation" required />
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="ct-realm">Realm Name *</label>
+              <input id="ct-realm" class="form-input" type="text" placeholder="acme-corp" required />
+              <span class="form-hint">Lowercase, hyphens allowed. Will be the Keycloak realm identifier.</span>
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="ct-domain">Custom Domain</label>
+              <input id="ct-domain" class="form-input" type="text" placeholder="acme.example.com" />
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="ct-plan">Subscription Plan</label>
+              <select id="ct-plan" class="form-input form-select">
+                <option value="free">Free</option>
+                <option value="starter">Starter</option>
+                <option value="pro">Pro</option>
+                <option value="enterprise">Enterprise</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="ct-max-users">Max Users (0 = unlimited)</label>
+              <input id="ct-max-users" class="form-input" type="number" value="0" min="0" />
+            </div>
+          </div>
+          <div class="modal-footer" style="margin-top:24px">
+            <button type="submit" class="btn btn-primary" id="ct-submit-btn">
+              <span id="ct-btn-text">Create Tenant</span>
+              <div id="ct-spinner" class="spinner" hidden></div>
+            </button>
+          </div>
+        </form>
+      </div>
+    </section>
+
+    <!-- Audit logs page -->
+    <section id="page-audit" hidden>
+      <div class="page-header">
+        <h1 class="page-title">Audit Logs</h1>
+        <p class="page-subtitle">Immutable record of all privileged actions</p>
+      </div>
+      <div class="toolbar">
+        <select id="audit-action-filter" class="form-select" aria-label="Filter by action">
+          <option value="">All actions</option>
+          <option value="LOGIN">Login</option>
+          <option value="CREATE_TENANT">Create Tenant</option>
+          <option value="DELETE_TENANT">Delete Tenant</option>
+          <option value="CREATE_USER">Create User</option>
+          <option value="DELETE_USER">Delete User</option>
+          <option value="RESET_PASSWORD">Reset Password</option>
+        </select>
+        <input id="audit-tenant-filter" class="search-input" style="max-width:220px" type="text" placeholder="Tenant ID…" aria-label="Filter by tenant ID" />
+      </div>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr><th>Time</th><th>Actor</th><th>Role</th><th>Action</th><th>Resource</th><th>Status</th><th>IP</th></tr>
+          </thead>
+          <tbody id="audit-body"></tbody>
+        </table>
+      </div>
+      <div id="audit-pagination" class="pagination"></div>
+    </section>
+
+  </main>
+</div>
+
+<!-- ── Confirm modal ─────────────────────────────────────── -->
+<div id="confirm-modal" class="modal-overlay" hidden role="dialog" aria-modal="true" aria-labelledby="confirm-title">
+  <div class="modal">
+    <div class="modal-header">
+      <h2 class="modal-title" id="confirm-title">Confirm Action</h2>
+    </div>
+    <p id="confirm-message" style="color:var(--clr-text-muted);margin-bottom:8px"></p>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" id="confirm-cancel">Cancel</button>
+      <button class="btn btn-danger"    id="confirm-ok">Confirm</button>
+    </div>
+  </div>
+</div>
+
+<script src="../js/api.js"></script>
+<script src="../js/dashboard-common.js"></script>
+<script src="../js/super-admin.js"></script>
+</body>
+</html>
