@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="SaaS IAM Platform – User Dashboard" />
+  <title>SaaS IAM – Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/css/global.css" />
+  <link rel="stylesheet" href="/css/dashboard.css" />
+  <style>
+    .user-dashboard {
+      max-width: 960px;
+      margin: 0 auto;
+      padding: 40px 24px;
+    }
+
+    .dash-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 36px;
+    }
+
+    .user-greeting h1 {
+      font-size: 1.8rem;
+      font-weight: 800;
+      background: linear-gradient(135deg, #f1f5f9, #a5f3fc);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .user-greeting p {
+      color: var(--clr-text-muted);
+      font-size: 0.95rem;
+      margin-top: 4px;
+    }
+
+    .profile-card {
+      background: var(--clr-surface);
+      border: 1px solid var(--clr-border);
+      border-radius: var(--radius-lg);
+      padding: 32px;
+      margin-bottom: 24px;
+    }
+
+    .profile-card h3 {
+      font-size: 1.1rem;
+      margin-bottom: 20px;
+      color: #f1f5f9;
+    }
+
+    .profile-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 20px;
+    }
+
+    .profile-field {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .profile-field .label {
+      font-size: 0.78rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--clr-text-faint);
+    }
+    .profile-field .value {
+      font-size: 0.95rem;
+      color: var(--clr-text);
+      padding: 10px 14px;
+      background: var(--clr-surface-2);
+      border-radius: var(--radius-md);
+      border: 1px solid var(--clr-border);
+    }
+
+    .roles-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .role-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 4px 12px;
+      border-radius: 9999px;
+      font-size: 0.78rem;
+      font-weight: 600;
+      background: rgba(6,182,212,0.1);
+      border: 1px solid rgba(6,182,212,0.25);
+      color: #67e8f9;
+    }
+
+    .session-info {
+      background: var(--clr-surface);
+      border: 1px solid var(--clr-border);
+      border-radius: var(--radius-lg);
+      padding: 24px;
+    }
+
+    .session-info h3 {
+      font-size: 1.1rem;
+      margin-bottom: 16px;
+      color: #f1f5f9;
+    }
+
+    .session-meta {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 16px;
+    }
+
+    .meta-item {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .meta-item .label {
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--clr-text-faint);
+    }
+    .meta-item .value {
+      font-size: 0.88rem;
+      color: var(--clr-text-muted);
+    }
+
+    .loading-overlay {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      min-height: 60vh;
+      color: var(--clr-text-muted);
+    }
+    .loading-overlay .spinner {
+      width: 32px;
+      height: 32px;
+      border-width: 3px;
+    }
+
+    .logout-btn {
+      background: var(--clr-surface-3);
+      border: 1px solid var(--clr-border);
+      color: var(--clr-text);
+      padding: 8px 20px;
+      border-radius: var(--radius-md);
+      font-weight: 600;
+      font-size: 0.85rem;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .logout-btn:hover {
+      border-color: var(--clr-danger);
+      color: #fca5a5;
+      background: rgba(239,68,68,0.08);
+    }
+
+    @media (max-width: 640px) {
+      .dash-header { flex-direction: column; align-items: flex-start; gap: 16px; }
+      .profile-grid, .session-meta { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div id="loading" class="loading-overlay">
+    <div class="spinner"></div>
+    <p>Loading your dashboard…</p>
+  </div>
+
+  <div id="dashboard" class="user-dashboard" style="display: none;">
+    <div class="dash-header">
+      <div class="user-greeting">
+        <h1 id="greeting">Welcome back</h1>
+        <p id="sub-greeting">Your workspace is ready</p>
+      </div>
+      <button id="logout-btn" class="logout-btn">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"/>
+        </svg>
+        Sign out
+      </button>
+    </div>
+
+    <div class="profile-card">
+      <h3>👤 Your Profile</h3>
+      <div class="profile-grid">
+        <div class="profile-field">
+          <span class="label">Username</span>
+          <span class="value" id="profile-username">—</span>
+        </div>
+        <div class="profile-field">
+          <span class="label">Email</span>
+          <span class="value" id="profile-email">—</span>
+        </div>
+        <div class="profile-field">
+          <span class="label">User ID</span>
+          <span class="value" id="profile-id" style="font-family: var(--font-mono); font-size: 0.82rem;">—</span>
+        </div>
+        <div class="profile-field">
+          <span class="label">Realm</span>
+          <span class="value" id="profile-realm">—</span>
+        </div>
+      </div>
+      <div style="margin-top: 20px;">
+        <span class="label" style="font-size: 0.78rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--clr-text-faint); display: block; margin-bottom: 8px;">Roles</span>
+        <div class="roles-list" id="profile-roles">
+          <span class="role-chip">—</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="session-info">
+      <h3>🔐 Session Information</h3>
+      <div class="session-meta">
+        <div class="meta-item">
+          <span class="label">Status</span>
+          <span class="value" style="color: var(--clr-success);">● Active</span>
+        </div>
+        <div class="meta-item">
+          <span class="label">Role Level</span>
+          <span class="value" id="session-role">—</span>
+        </div>
+        <div class="meta-item">
+          <span class="label">Authentication</span>
+          <span class="value">PKCE (Keycloak)</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    (() => {
+      const loadingEl = document.getElementById('loading');
+      const dashboardEl = document.getElementById('dashboard');
+
+      async function loadSession() {
+        try {
+          const res = await fetch('/api/v1/auth/session', { credentials: 'include' });
+          if (!res.ok) {
+            window.location.href = '/login';
+            return;
+          }
+          const data = await res.json();
+
+          // Populate profile
+          document.getElementById('profile-username').textContent = data.username || '—';
+          document.getElementById('profile-email').textContent = data.email || '—';
+          document.getElementById('profile-id').textContent = data.user_id || '—';
+          document.getElementById('profile-realm').textContent = data.realm || '—';
+          document.getElementById('session-role').textContent = data.app_role || '—';
+
+          // Greeting
+          const name = data.username || 'there';
+          document.getElementById('greeting').textContent = `Welcome back, ${name}`;
+          document.getElementById('sub-greeting').textContent = `Realm: ${data.realm || 'unknown'}`;
+
+          // Roles
+          const rolesContainer = document.getElementById('profile-roles');
+          rolesContainer.innerHTML = '';
+          const roles = data.roles || [];
+          if (roles.length === 0) {
+            rolesContainer.innerHTML = '<span class="role-chip">No roles assigned</span>';
+          } else {
+            roles.forEach(role => {
+              const chip = document.createElement('span');
+              chip.className = 'role-chip';
+              chip.textContent = role;
+              rolesContainer.appendChild(chip);
+            });
+          }
+
+          // Show dashboard
+          loadingEl.style.display = 'none';
+          dashboardEl.style.display = 'block';
+        } catch (err) {
+          console.error('Session load failed:', err);
+          window.location.href = '/login';
+        }
+      }
+
+      // Logout
+      document.getElementById('logout-btn').addEventListener('click', async () => {
+        try {
+          await fetch('/api/v1/auth/logout', { method: 'POST', credentials: 'include' });
+        } catch (e) { /* ignore */ }
+        window.location.href = '/login';
+      });
+
+      loadSession();
+    })();
+  </script>
+</body>
+</html>

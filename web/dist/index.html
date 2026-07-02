@@ -4,85 +4,279 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="description" content="SaaS IAM Platform – Secure Multi-Tenant Identity Management" />
-  <title>SaaS IAM Platform – Login</title>
+  <title>SaaS IAM Platform</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="css/global.css" />
-  <link rel="stylesheet" href="css/login.css" />
+  <style>
+    .landing-page {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .bg-gradient {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 0;
+      background:
+        radial-gradient(ellipse at 20% 30%, rgba(99,102,241,0.08) 0%, transparent 60%),
+        radial-gradient(ellipse at 80% 70%, rgba(6,182,212,0.06) 0%, transparent 60%),
+        radial-gradient(ellipse at 50% 50%, rgba(139,92,246,0.04) 0%, transparent 70%);
+    }
+
+    .landing-container {
+      position: relative;
+      z-index: 1;
+      text-align: center;
+      max-width: 640px;
+      padding: 48px 32px;
+    }
+
+    .logo-row {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 14px;
+      margin-bottom: 36px;
+    }
+    .logo-name {
+      font-size: 1.6rem;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      background: linear-gradient(135deg, #c7d2fe, #a5f3fc);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .landing-headline {
+      font-size: clamp(2rem, 4vw, 3rem);
+      font-weight: 800;
+      line-height: 1.15;
+      letter-spacing: -0.03em;
+      background: linear-gradient(135deg, #f1f5f9 30%, #c7d2fe 70%, #a5f3fc 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 16px;
+    }
+
+    .landing-subtitle {
+      color: #94a3b8;
+      font-size: 1.05rem;
+      line-height: 1.7;
+      margin-bottom: 48px;
+    }
+
+    .portal-cards {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+
+    .portal-card {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
+      padding: 36px 24px;
+      border-radius: var(--radius-xl);
+      border: 1.5px solid var(--clr-border);
+      background: var(--clr-surface);
+      text-decoration: none;
+      transition: all 0.3s ease;
+      position: relative;
+      overflow: hidden;
+    }
+    .portal-card::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      transition: opacity 0.3s ease;
+    }
+    .portal-card:hover {
+      transform: translateY(-4px);
+      border-color: var(--clr-border-hover);
+    }
+
+    .portal-card.admin-portal::before {
+      background: linear-gradient(135deg, rgba(139,92,246,0.05), rgba(99,102,241,0.03));
+    }
+    .portal-card.admin-portal:hover {
+      border-color: rgba(139,92,246,0.4);
+      box-shadow: 0 8px 32px rgba(139,92,246,0.15);
+    }
+    .portal-card.admin-portal:hover::before { opacity: 1; }
+
+    .portal-card.user-portal::before {
+      background: linear-gradient(135deg, rgba(6,182,212,0.05), rgba(99,102,241,0.03));
+    }
+    .portal-card.user-portal:hover {
+      border-color: rgba(6,182,212,0.4);
+      box-shadow: 0 8px 32px rgba(6,182,212,0.15);
+    }
+    .portal-card.user-portal:hover::before { opacity: 1; }
+
+    .portal-icon {
+      width: 56px;
+      height: 56px;
+      border-radius: var(--radius-lg);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      z-index: 1;
+    }
+    .admin-portal .portal-icon {
+      background: linear-gradient(135deg, rgba(139,92,246,0.15), rgba(99,102,241,0.1));
+      border: 1px solid rgba(139,92,246,0.25);
+    }
+    .user-portal .portal-icon {
+      background: linear-gradient(135deg, rgba(6,182,212,0.15), rgba(99,102,241,0.1));
+      border: 1px solid rgba(6,182,212,0.25);
+    }
+    .portal-icon svg {
+      width: 24px;
+      height: 24px;
+    }
+    .admin-portal .portal-icon svg { color: #c4b5fd; }
+    .user-portal .portal-icon svg { color: #67e8f9; }
+
+    .portal-card h3 {
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: #f1f5f9;
+      position: relative;
+      z-index: 1;
+    }
+    .portal-card p {
+      font-size: 0.85rem;
+      color: var(--clr-text-muted);
+      line-height: 1.5;
+      position: relative;
+      z-index: 1;
+    }
+
+    .portal-arrow {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 0.82rem;
+      font-weight: 600;
+      position: relative;
+      z-index: 1;
+      transition: gap 0.2s ease;
+    }
+    .admin-portal .portal-arrow { color: #c4b5fd; }
+    .user-portal .portal-arrow { color: #67e8f9; }
+    .portal-card:hover .portal-arrow { gap: 8px; }
+
+    .landing-footer {
+      margin-top: 48px;
+      font-size: 0.8rem;
+      color: var(--clr-text-faint);
+    }
+    .landing-footer a {
+      color: var(--clr-text-faint);
+      text-decoration: underline;
+      text-underline-offset: 2px;
+    }
+
+    .pkce-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 14px;
+      border-radius: 9999px;
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      background: rgba(16,185,129,0.08);
+      border: 1px solid rgba(16,185,129,0.25);
+      color: #6ee7b7;
+      margin-top: 12px;
+    }
+
+    @media (max-width: 600px) {
+      .portal-cards { grid-template-columns: 1fr; }
+    }
+  </style>
 </head>
-<body class="login-page">
-  <div class="bg-particles" aria-hidden="true">
-    <div class="particle"></div><div class="particle"></div><div class="particle"></div>
-    <div class="particle"></div><div class="particle"></div>
-  </div>
-  <main class="login-main" role="main">
-    <section class="login-brand" aria-label="Platform branding">
-      <div class="brand-content">
-        <div class="brand-logo">
-          <svg width="48" height="48" viewBox="0 0 48 48" fill="none" aria-hidden="true">
-            <rect width="48" height="48" rx="14" fill="url(#grad1)"/>
-            <circle cx="24" cy="24" r="8" fill="white" opacity="0.9"/>
-            <circle cx="24" cy="24" r="4" fill="url(#grad1)"/>
-            <defs>
-              <linearGradient id="grad1" x1="0" y1="0" x2="48" y2="48">
-                <stop offset="0%" stop-color="#6366f1"/><stop offset="100%" stop-color="#8b5cf6"/>
-              </linearGradient>
-            </defs>
-          </svg>
-          <span class="brand-name">SaaS IAM</span>
-        </div>
-        <h1 class="brand-headline">Enterprise Identity<br/>& Access Management</h1>
-        <p class="brand-subtitle">Secure, scalable, multi-tenant identity platform. Manage users, groups, and roles across all your tenants from one place.</p>
-        <ul class="brand-features" aria-label="Key features">
-          <li><span class="feature-icon">🔐</span> JWT-based authentication</li>
-          <li><span class="feature-icon">🏢</span> Complete tenant isolation</li>
-          <li><span class="feature-icon">👥</span> Role-based access control</li>
-          <li><span class="feature-icon">📋</span> Immutable audit logging</li>
-          <li><span class="feature-icon">⚡</span> Real-time session management</li>
-        </ul>
+<body>
+  <div class="bg-gradient"></div>
+  <main class="landing-page" role="main">
+    <div class="landing-container">
+      <div class="logo-row">
+        <svg width="44" height="44" viewBox="0 0 48 48" fill="none" aria-hidden="true">
+          <rect width="48" height="48" rx="14" fill="url(#gradL)"/>
+          <circle cx="24" cy="24" r="8" fill="white" opacity="0.9"/>
+          <circle cx="24" cy="24" r="4" fill="url(#gradL)"/>
+          <defs>
+            <linearGradient id="gradL" x1="0" y1="0" x2="48" y2="48">
+              <stop offset="0%" stop-color="#6366f1"/><stop offset="100%" stop-color="#0891b2"/>
+            </linearGradient>
+          </defs>
+        </svg>
+        <span class="logo-name">SaaS IAM</span>
       </div>
-    </section>
-    <section class="login-form-panel" aria-label="Sign in">
-      <div class="login-card">
-        <div class="login-card-header">
-          <h2 id="login-title">Welcome back</h2>
-          <p>Sign in to your workspace</p>
-        </div>
-        <div id="login-alert" class="alert alert-error" role="alert" aria-live="assertive" hidden>
-          <span id="login-alert-text"></span>
-        </div>
-        <form id="login-form" novalidate autocomplete="on">
-          <div class="form-group">
-            <label for="realm" class="form-label">Workspace / Realm</label>
-            <div class="input-wrapper">
-              <input id="realm" name="realm" type="text" class="form-input" placeholder="e.g. acme-corp or master" autocomplete="organization" value="master" />
-            </div>
-            <span class="form-hint">Your tenant's Keycloak realm name</span>
+
+      <h1 class="landing-headline">Enterprise Identity<br/>& Access Management</h1>
+      <p class="landing-subtitle">Secure, multi-tenant identity platform powered by Keycloak. Choose your portal to sign in.</p>
+
+      <div class="portal-cards">
+        <a href="/admin/login" class="portal-card admin-portal" id="admin-portal-link">
+          <div class="portal-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+            </svg>
           </div>
-          <div class="form-group">
-            <label for="username" class="form-label">Email or Username</label>
-            <div class="input-wrapper">
-              <input id="username" name="username" type="text" class="form-input" placeholder="admin@example.com" autocomplete="username" aria-required="true" />
-            </div>
+          <h3>Admin Portal</h3>
+          <p>Manage users, groups, roles, and tenant settings</p>
+          <span class="portal-arrow">
+            Sign in as Admin
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M5 12h14M12 5l7 7-7 7"/>
+            </svg>
+          </span>
+        </a>
+
+        <a href="/login" class="portal-card user-portal" id="user-portal-link">
+          <div class="portal-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M16 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/>
+              <circle cx="8.5" cy="7" r="4"/>
+              <path d="M20 8v6M23 11h-6"/>
+            </svg>
           </div>
-          <div class="form-group">
-            <label for="password" class="form-label">Password</label>
-            <div class="input-wrapper">
-              <input id="password" name="password" type="password" class="form-input" placeholder="••••••••" autocomplete="current-password" aria-required="true" />
-            </div>
-          </div>
-          <button type="submit" id="login-btn" class="btn btn-primary btn-full">
-            <span id="login-btn-text">Sign in</span>
-            <div id="login-spinner" class="spinner" hidden></div>
-          </button>
-        </form>
-        <div class="login-footer">
-          <p>Protected by Keycloak IAM &nbsp;·&nbsp; <a href="/api/v1/healthz" target="_blank" rel="noopener noreferrer">System Status</a></p>
-        </div>
+          <h3>User Portal</h3>
+          <p>Access your workspace and applications</p>
+          <span class="portal-arrow">
+            Sign in as User
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M5 12h14M12 5l7 7-7 7"/>
+            </svg>
+          </span>
+        </a>
       </div>
-    </section>
+
+      <div class="pkce-badge">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
+        </svg>
+        PKCE Secured Authentication
+      </div>
+
+      <div class="landing-footer">
+        <p>Powered by Keycloak IAM &nbsp;·&nbsp; <a href="/healthz">System Status</a></p>
+      </div>
+    </div>
   </main>
-  <script src="js/api.js"></script>
-  <script src="js/login.js"></script>
 </body>
 </html>

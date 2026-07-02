@@ -114,6 +114,11 @@ services:
       KEYCLOAK_MASTER_REALM: master
       KEYCLOAK_CLIENT_ID:    saas-iam-backend
       KEYCLOAK_CLIENT_SECRET: change-me-in-production
+      KEYCLOAK_FRONTEND_URL: http://localhost:8081
+      PKCE_ADMIN_CLIENT_ID:  saas-iam-admin
+      PKCE_USER_CLIENT_ID:   saas-iam-user
+      PKCE_ADMIN_REDIRECT_URL: http://localhost:8080/admin/callback
+      PKCE_USER_REDIRECT_URL:  http://localhost:8080/user/callback
       JWT_SECRET:            change-me-in-production-32-chars-minimum
       SESSION_TTL:           8h
       ALLOWED_ORIGINS:       "http://localhost:8080,http://localhost:3000"

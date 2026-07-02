@@ -2,13 +2,16 @@
  * web/dist/js/api.js
  * Centralised API client for all backend REST calls.
  * All methods return Promises.  On authentication errors (401) the user
- * is automatically redirected to the login page.
+ * is automatically redirected to the appropriate login page.
+ *
+ * Authentication uses PKCE flow – the backend manages all tokens server-side.
+ * The frontend only holds an opaque session_id cookie (HttpOnly).
  */
 
 const API = (() => {
   const BASE = '/api/v1';
 
-  /** Reads the session_id from a cookie (set by the backend on login). */
+  /** Reads the session_id from a cookie (set by the backend on PKCE callback). */
   function getSessionId() {
     const match = document.cookie.match(/(?:^|;\s*)session_id=([^;]+)/);
     return match ? match[1] : null;
@@ -17,7 +20,6 @@ const API = (() => {
   /** Builds default headers for every request. */
   function headers(extra = {}) {
     const h = { 'Content-Type': 'application/json', ...extra };
-    const sid = getSessionId();
     // Include realm header if stored in sessionStorage
     const realm = sessionStorage.getItem('realm');
     if (realm) h['X-Tenant-Realm'] = realm;
@@ -38,7 +40,10 @@ const API = (() => {
       // Handle 401 – redirect to login
       if (res.status === 401) {
         sessionStorage.clear();
-        window.location.href = '/';
+        // Determine which login page to redirect to based on current path
+        const isAdmin = window.location.pathname.startsWith('/dashboard/super-admin') ||
+                        window.location.pathname.startsWith('/dashboard/realm-admin');
+        window.location.href = isAdmin ? '/admin/login' : '/login';
         return;
       }
 
@@ -66,11 +71,12 @@ const API = (() => {
 
   // ── Auth ────────────────────────────────────────────────
   const auth = {
-    login(realm, username, password) {
-      return request('/auth/login', {
-        method: 'POST',
-        body: JSON.stringify({ realm, username, password }),
-      });
+    /**
+     * Get current session info (replaces login for PKCE flow).
+     * The session is established via the PKCE callback, not direct login.
+     */
+    session() {
+      return request('/auth/session');
     },
     logout() {
       return request('/auth/logout', { method: 'POST' });

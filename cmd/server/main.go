@@ -108,6 +108,7 @@ func main() {
 	tenantRepo := repository.NewTenantRepository(db, log)
 	auditRepo := repository.NewAuditRepository(db, log)
 	sessionRepo := repository.NewSessionRepository(redisClient, log)
+	pkceRepo := repository.NewPKCERepository(redisClient, log)
 
 	// ------------------------------------------------------------------
 	// 9. Wire up services
@@ -118,7 +119,7 @@ func main() {
 	groupSvc := services.NewGroupService(kcClient, auditSvc, log)
 	roleSvc := services.NewRoleService(kcClient, auditSvc, log)
 	sessionSvc := services.NewSessionService(sessionRepo, kcClient, log)
-	authSvc := services.NewAuthService(kcClient, sessionSvc, jwtVerifier, cfg, log)
+	authSvc := services.NewAuthService(kcClient, sessionSvc, pkceRepo, jwtVerifier, cfg, log)
 	profileSvc := services.NewProfileService(kcClient, log)
 
 	// ------------------------------------------------------------------

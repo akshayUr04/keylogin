@@ -26,6 +26,7 @@ type SessionData struct {
 	IDToken      string    `json:"id_token"`
 	Roles        []string  `json:"roles"`
 	AppRole      string    `json:"app_role"`
+	PKCEClientID string    `json:"pkce_client_id,omitempty"` // public client ID used in PKCE flow
 	IPAddress    string    `json:"ip_address"`
 	UserAgent    string    `json:"user_agent"`
 	CreatedAt    time.Time `json:"created_at"`

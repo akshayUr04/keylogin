@@ -2,9 +2,15 @@
 // HTTP router configuration.
 // All routes are registered here using gorilla/mux.
 // The router is structured as:
-//   /api/v1/auth/…          – public authentication endpoints
-//   /api/v1/profile/…       – authenticated end-user endpoints
-//   /api/v1/admin/…         – super-admin only endpoints
+//   /admin/login             – admin PKCE login page
+//   /admin/login/authorize   – initiates PKCE flow for admins
+//   /admin/callback          – PKCE callback for admins
+//   /login                   – user PKCE login page
+//   /login/authorize         – initiates PKCE flow for users
+//   /user/callback           – PKCE callback for users
+//   /api/v1/auth/…           – session management endpoints
+//   /api/v1/profile/…        – authenticated end-user endpoints
+//   /api/v1/admin/…          – super-admin only endpoints
 //   /api/v1/realms/{realm}/… – realm-admin + super-admin endpoints
 //   /                        – serves the SPA frontend static files
 package routes
@@ -30,14 +36,32 @@ func Register(h *handlers.Handlers, mw *middleware.Middleware, cfg *config.Confi
 	r.Use(mw.TenantResolution)
 	r.Use(mw.RateLimiter)
 
+	// ══════════════════════════════════════════════════════════════════════
+	// ── PKCE Authentication Routes (public – no JWT required) ──────────
+	// ══════════════════════════════════════════════════════════════════════
+
+	// ── Admin Portal PKCE ──────────────────────────────────────────────
+	// Step 1: Admin visits /admin/login → sees admin login page (static HTML)
+	// Step 2: Click "Sign In" → GET /admin/login/authorize?realm=...
+	// Step 3: Keycloak redirects back → GET /admin/callback?code=...&state=...
+	r.HandleFunc("/admin/login/authorize", h.PKCEAdminAuthorize).Methods(http.MethodGet)
+	r.HandleFunc("/admin/callback", h.PKCEAdminCallback).Methods(http.MethodGet)
+
+	// ── User Portal PKCE ───────────────────────────────────────────────
+	// Step 1: User visits /login → sees user login page (static HTML)
+	// Step 2: Click "Sign In" → GET /login/authorize?realm=...
+	// Step 3: Keycloak redirects back → GET /user/callback?code=...&state=...
+	r.HandleFunc("/login/authorize", h.PKCEUserAuthorize).Methods(http.MethodGet)
+	r.HandleFunc("/user/callback", h.PKCEUserCallback).Methods(http.MethodGet)
+
 	// ── API v1 sub-router ──────────────────────────────────────────────
 	api := r.PathPrefix("/api/v1").Subrouter()
 
-	// ── Auth endpoints (public – no JWT required) ──────────────────────
-	auth := api.PathPrefix("/auth").Subrouter()
-	auth.HandleFunc("/login", h.Login).Methods(http.MethodPost, http.MethodOptions)
-	auth.HandleFunc("/logout", h.Logout).Methods(http.MethodPost, http.MethodOptions)
-	auth.HandleFunc("/refresh", h.RefreshToken).Methods(http.MethodPost, http.MethodOptions)
+	// ── Auth session endpoints (public – no JWT required) ──────────────
+	authAPI := api.PathPrefix("/auth").Subrouter()
+	authAPI.HandleFunc("/logout", h.Logout).Methods(http.MethodPost, http.MethodOptions)
+	authAPI.HandleFunc("/refresh", h.RefreshToken).Methods(http.MethodPost, http.MethodOptions)
+	authAPI.HandleFunc("/session", h.SessionInfo).Methods(http.MethodGet)
 
 	// ── Authenticated auth endpoints ────────────────────────────────────
 	authProtected := api.PathPrefix("/auth").Subrouter()
@@ -109,6 +133,22 @@ func Register(h *handlers.Handlers, mw *middleware.Middleware, cfg *config.Confi
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(`{"status":"ok"}`))
+	}).Methods(http.MethodGet)
+
+	// ── Static pages ──────────────────────────────────────────────────
+	// Admin login page
+	r.HandleFunc("/admin/login", func(w http.ResponseWriter, r *http.Request) {
+		http.ServeFile(w, r, "./web/dist/admin-login.html")
+	}).Methods(http.MethodGet)
+
+	// User login page
+	r.HandleFunc("/login", func(w http.ResponseWriter, r *http.Request) {
+		http.ServeFile(w, r, "./web/dist/user-login.html")
+	}).Methods(http.MethodGet)
+
+	// User dashboard page
+	r.HandleFunc("/user/dashboard", func(w http.ResponseWriter, r *http.Request) {
+		http.ServeFile(w, r, "./web/dist/dashboard/user.html")
 	}).Methods(http.MethodGet)
 
 	// ── Frontend SPA – serve static files ─────────────────────────────

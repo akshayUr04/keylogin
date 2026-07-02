@@ -1,9 +1,10 @@
 // internal/handlers/auth_handler.go
 // Authentication HTTP handlers.
+// Supports PKCE (Authorization Code + Proof Key for Code Exchange) flow
+// for both tenant admin and end-user portals.
 package handlers
 
 import (
-	"encoding/json"
 	"net/http"
 	"strings"
 	"time"
@@ -16,64 +17,112 @@ import (
 	"github.com/yourdomain/saas-iam/pkg/response"
 )
 
-// loginRequest is the JSON body sent by the frontend login page.
-type loginRequest struct {
-	Username string `json:"username"`
-	Password string `json:"password"`
-	Realm    string `json:"realm"` // optional explicit realm name
-}
+// ── PKCE Flow Handlers ──────────────────────────────────────────────────────
 
-// Login handles POST /api/v1/auth/login
-func (h *Handlers) Login(w http.ResponseWriter, r *http.Request) {
-	var req loginRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		apierror.Write(w, apierror.BadRequest("invalid request body"))
-		return
-	}
-
-	req.Username = strings.TrimSpace(req.Username)
-	req.Realm = strings.TrimSpace(req.Realm)
-
-	if req.Username == "" || req.Password == "" {
-		apierror.Write(w, apierror.BadRequest("username and password are required"))
-		return
-	}
-
-	// Resolve realm: explicit field > tenant resolver > master realm
-	realm := req.Realm
-	if realm == "" {
-		realm = auth.RealmFromContext(r.Context())
-	}
+// PKCEAdminAuthorize handles GET /admin/login/authorize
+// Initiates the PKCE flow for the admin portal.
+// Query params: realm (optional, defaults to master)
+func (h *Handlers) PKCEAdminAuthorize(w http.ResponseWriter, r *http.Request) {
+	realm := r.URL.Query().Get("realm")
 	if realm == "" {
 		realm = h.deps.Config.KeycloakMasterRealm
 	}
 
-	result, err := h.deps.AuthService.Login(
+	result, err := h.deps.AuthService.InitiatePKCE(r.Context(), "admin", realm)
+	if err != nil {
+		h.deps.Logger.Error("PKCE admin authorize failed", logger.Err(err))
+		apierror.Write(w, apierror.Internal("failed to initiate authentication"))
+		return
+	}
+
+	// Redirect browser to Keycloak login page
+	http.Redirect(w, r, result.AuthorizationURL, http.StatusFound)
+}
+
+// PKCEUserAuthorize handles GET /login/authorize
+// Initiates the PKCE flow for the end-user portal.
+// Query params: realm (required for user login)
+func (h *Handlers) PKCEUserAuthorize(w http.ResponseWriter, r *http.Request) {
+	realm := r.URL.Query().Get("realm")
+	if realm == "" {
+		// Try to resolve from tenant context
+		realm = auth.RealmFromContext(r.Context())
+	}
+	if realm == "" {
+		apierror.Write(w, apierror.BadRequest("realm is required – provide ?realm= or use a tenant subdomain"))
+		return
+	}
+
+	result, err := h.deps.AuthService.InitiatePKCE(r.Context(), "user", realm)
+	if err != nil {
+		h.deps.Logger.Error("PKCE user authorize failed", logger.Err(err))
+		apierror.Write(w, apierror.Internal("failed to initiate authentication"))
+		return
+	}
+
+	// Redirect browser to Keycloak login page
+	http.Redirect(w, r, result.AuthorizationURL, http.StatusFound)
+}
+
+// PKCEAdminCallback handles GET /admin/callback
+// Receives the authorization code from Keycloak after admin login.
+func (h *Handlers) PKCEAdminCallback(w http.ResponseWriter, r *http.Request) {
+	h.handlePKCECallback(w, r, "/dashboard/realm-admin.html")
+}
+
+// PKCEUserCallback handles GET /user/callback
+// Receives the authorization code from Keycloak after user login.
+func (h *Handlers) PKCEUserCallback(w http.ResponseWriter, r *http.Request) {
+	h.handlePKCECallback(w, r, "/user/dashboard")
+}
+
+// handlePKCECallback is the shared callback handler for both admin and user PKCE flows.
+func (h *Handlers) handlePKCECallback(w http.ResponseWriter, r *http.Request, successRedirect string) {
+	code := r.URL.Query().Get("code")
+	state := r.URL.Query().Get("state")
+	kcError := r.URL.Query().Get("error")
+
+	// Handle Keycloak error responses
+	if kcError != "" {
+		desc := r.URL.Query().Get("error_description")
+		h.deps.Logger.Warn("Keycloak returned error in PKCE callback",
+			logger.Field("error", kcError),
+			logger.Field("description", desc),
+		)
+		// Redirect back to login with error
+		http.Redirect(w, r, "/?error="+kcError, http.StatusFound)
+		return
+	}
+
+	if code == "" || state == "" {
+		apierror.Write(w, apierror.BadRequest("missing code or state parameter"))
+		return
+	}
+
+	result, err := h.deps.AuthService.HandlePKCECallback(
 		r.Context(),
-		realm,
-		req.Username,
-		req.Password,
+		code,
+		state,
 		middleware.IPFromRequest(r),
 		r.UserAgent(),
 	)
 	if err != nil {
-		h.deps.Logger.Warn("login failed",
-			logger.Field("username", req.Username),
-			logger.Field("realm", realm),
+		h.deps.Logger.Error("PKCE callback failed",
 			logger.Err(err),
+			logger.Field("state", state),
 		)
-		apierror.Write(w, apierror.Unauthorized("invalid credentials"))
+		http.Redirect(w, r, "/?error=auth_failed", http.StatusFound)
 		return
 	}
 
-	// Secure HttpOnly session cookie for browser clients
+	// Set secure HttpOnly session cookie
 	http.SetCookie(w, &http.Cookie{
 		Name:     "session_id",
 		Value:    result.SessionID,
 		Path:     "/",
 		HttpOnly: true,
 		Secure:   h.deps.Config.Env != "development",
-		SameSite: http.SameSiteStrictMode,
+		SameSite: http.SameSiteLaxMode, // Lax required for OAuth redirects
 		Expires:  time.Now().Add(h.deps.Config.SessionTTL),
 	})
 
@@ -84,13 +133,25 @@ func (h *Handlers) Login(w http.ResponseWriter, r *http.Request) {
 		ActorRole:    result.AppRole,
 		Action:       audit.ActionLogin,
 		ResourceType: "session",
-		Details:      map[string]any{"realm": realm},
+		Details:      map[string]any{"realm": result.RealmName, "method": "pkce"},
 		IPAddress:    middleware.IPFromRequest(r),
 		UserAgent:    r.UserAgent(),
 	})
 
-	response.JSON(w, result)
+	// Determine redirect based on role
+	switch result.AppRole {
+	case "super_admin":
+		successRedirect = "/dashboard/super-admin.html"
+	case "realm_admin":
+		successRedirect = "/dashboard/realm-admin.html"
+	default:
+		successRedirect = "/user/dashboard"
+	}
+
+	http.Redirect(w, r, successRedirect, http.StatusFound)
 }
+
+// ── Session-based endpoints (unchanged) ─────────────────────────────────────
 
 // Logout handles POST /api/v1/auth/logout
 func (h *Handlers) Logout(w http.ResponseWriter, r *http.Request) {
@@ -114,7 +175,12 @@ func (h *Handlers) Logout(w http.ResponseWriter, r *http.Request) {
 		MaxAge:   -1,
 	})
 
-	response.NoContent(w)
+	// If Accept header is JSON, return JSON; otherwise redirect to login
+	if strings.Contains(r.Header.Get("Accept"), "application/json") {
+		response.NoContent(w)
+	} else {
+		http.Redirect(w, r, "/", http.StatusFound)
+	}
 }
 
 // RefreshToken handles POST /api/v1/auth/refresh
@@ -154,6 +220,31 @@ func (h *Handlers) Me(w http.ResponseWriter, r *http.Request) {
 		"name":     claims.Name,
 		"realm":    claims.RealmName(),
 		"roles":    claims.RealmAccess.Roles,
+	})
+}
+
+// SessionInfo handles GET /api/v1/auth/session – returns session info from cookie.
+// Does not require JWT auth middleware – uses the session cookie directly.
+func (h *Handlers) SessionInfo(w http.ResponseWriter, r *http.Request) {
+	sessionID := extractSessionID(r)
+	if sessionID == "" {
+		apierror.Write(w, apierror.Unauthorized("no active session"))
+		return
+	}
+
+	session, err := h.deps.AuthService.GetSession(r.Context(), sessionID)
+	if err != nil || session == nil {
+		apierror.Write(w, apierror.Unauthorized("session expired"))
+		return
+	}
+
+	response.JSON(w, map[string]any{
+		"user_id":  session.UserID,
+		"username": session.Username,
+		"email":    session.Email,
+		"app_role": session.AppRole,
+		"realm":    session.RealmName,
+		"roles":    session.Roles,
 	})
 }
 

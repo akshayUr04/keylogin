@@ -32,12 +32,19 @@ type Config struct {
 	RedisURL string // redis://localhost:6379/0
 
 	// ── Keycloak ────────────────────────────────────────────────────────
-	KeycloakURL          string // e.g. http://localhost:8080
+	KeycloakURL          string // e.g. http://localhost:8080 (backend→KC)
+	KeycloakFrontendURL  string // e.g. http://localhost:8081 (browser→KC, may differ in Docker)
 	KeycloakAdminUser    string // master-realm admin username
 	KeycloakAdminPass    string // master-realm admin password
 	KeycloakMasterRealm  string // usually "master"
-	KeycloakClientID     string // client id used by the backend
-	KeycloakClientSecret string // client secret (confidential client)
+	KeycloakClientID     string // confidential client id used by the backend (admin API)
+	KeycloakClientSecret string // confidential client secret
+
+	// ── PKCE Clients (public, no secret) ────────────────────────────────
+	PKCEAdminClientID    string // public client for admin portal PKCE flow
+	PKCEUserClientID     string // public client for end-user portal PKCE flow
+	PKCEAdminRedirectURL string // e.g. http://localhost:8080/admin/callback
+	PKCEUserRedirectURL  string // e.g. http://localhost:8080/user/callback
 
 	// ── Rate limiting ───────────────────────────────────────────────────
 	RateLimitRequests int           // requests per window
@@ -96,6 +103,13 @@ func Load() (*Config, error) {
 	cfg.JWTSecret = getEnvOrDefault("JWT_SECRET", "change-me-in-production")
 	cfg.RedisURL = getEnvOrDefault("REDIS_URL", "redis://localhost:6379/0")
 	cfg.KeycloakMasterRealm = getEnvOrDefault("KEYCLOAK_MASTER_REALM", "master")
+	cfg.KeycloakFrontendURL = getEnvOrDefault("KEYCLOAK_FRONTEND_URL", cfg.KeycloakURL)
+
+	// PKCE public client settings
+	cfg.PKCEAdminClientID = getEnvOrDefault("PKCE_ADMIN_CLIENT_ID", "saas-iam-admin")
+	cfg.PKCEUserClientID = getEnvOrDefault("PKCE_USER_CLIENT_ID", "saas-iam-user")
+	cfg.PKCEAdminRedirectURL = getEnvOrDefault("PKCE_ADMIN_REDIRECT_URL", "http://localhost:8080/admin/callback")
+	cfg.PKCEUserRedirectURL = getEnvOrDefault("PKCE_USER_REDIRECT_URL", "http://localhost:8080/user/callback")
 
 	// Session TTL (default 8 h)
 	ttlStr := getEnvOrDefault("SESSION_TTL", "8h")

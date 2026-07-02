@@ -4,21 +4,35 @@
  */
 
 // ── Auth guard ───────────────────────────────────────────
-(function guardAuth() {
-  if (!API.getSessionId()) {
-    window.location.href = '/';
+(async function guardAuth() {
+  try {
+    const sessionData = await API.auth.session();
+    if (!sessionData) {
+      window.location.href = '/admin/login';
+      return;
+    }
+    // Store session info for use by dashboard pages
+    sessionStorage.setItem('user_id',  sessionData.user_id);
+    sessionStorage.setItem('username', sessionData.username);
+    sessionStorage.setItem('email',    sessionData.email);
+    sessionStorage.setItem('app_role', sessionData.app_role);
+    sessionStorage.setItem('realm',    sessionData.realm);
+
+    // Populate user info in nav
+    const username = sessionData.username || 'User';
+    const avatarEl = document.getElementById('avatar-btn');
+    if (avatarEl) {
+      avatarEl.textContent = (username[0] || 'U').toUpperCase();
+    }
+    const menuUsr = document.getElementById('menu-username');
+    const menuEml = document.getElementById('menu-email');
+    if (menuUsr) menuUsr.textContent = sessionData.username;
+    if (menuEml) menuEml.textContent = sessionData.email;
+  } catch (err) {
+    // Session invalid or expired – redirect to admin login
+    sessionStorage.clear();
+    window.location.href = '/admin/login';
   }
-  // Populate user info in nav
-  const username = sessionStorage.getItem('username') || 'User';
-  const email    = sessionStorage.getItem('email')    || '';
-  const avatarEl = document.getElementById('avatar-btn');
-  if (avatarEl) {
-    avatarEl.textContent = (username[0] || 'U').toUpperCase();
-  }
-  const menuUsr = document.getElementById('menu-username');
-  const menuEml = document.getElementById('menu-email');
-  if (menuUsr) menuUsr.textContent = username;
-  if (menuEml) menuEml.textContent = email;
 })();
 
 // ── Avatar dropdown ──────────────────────────────────────
@@ -44,7 +58,7 @@ if (logoutBtn) {
   logoutBtn.addEventListener('click', async () => {
     try { await API.auth.logout(); } catch (_) {}
     sessionStorage.clear();
-    window.location.href = '/';
+    window.location.href = '/admin/login';
   });
 }
 

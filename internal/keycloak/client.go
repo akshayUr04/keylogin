@@ -366,3 +366,96 @@ func (c *Client) Logout(ctx context.Context, realm, refreshToken string) error {
 	}
 	return nil
 }
+
+// ExchangeCode exchanges an authorization code (from PKCE flow) for tokens.
+// This uses the authorization_code grant type with code_verifier (PKCE).
+// No client_secret is required because the Keycloak client is configured
+// as a public client with PKCE enforcement.
+func (c *Client) ExchangeCode(ctx context.Context, realm, clientID, code, codeVerifier, redirectURI string) (*TokenResponse, error) {
+	tokenURL := fmt.Sprintf("%s/realms/%s/protocol/openid-connect/token",
+		strings.TrimRight(c.cfg.BaseURL, "/"), realm)
+
+	form := url.Values{}
+	form.Set("grant_type", "authorization_code")
+	form.Set("client_id", clientID)
+	form.Set("code", code)
+	form.Set("code_verifier", codeVerifier)
+	form.Set("redirect_uri", redirectURI)
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, tokenURL,
+		strings.NewReader(form.Encode()))
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+	resp, err := c.http.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("code exchange request: %w", err)
+	}
+
+	var tr TokenResponse
+	if err := decodeOrError(resp, &tr); err != nil {
+		return nil, err
+	}
+	return &tr, nil
+}
+
+// RefreshTokenPublic exchanges a refresh token using a public client (no secret).
+// Used by the PKCE flow where clients don't have a client_secret.
+func (c *Client) RefreshTokenPublic(ctx context.Context, realm, clientID, refreshToken string) (*TokenResponse, error) {
+	tokenURL := fmt.Sprintf("%s/realms/%s/protocol/openid-connect/token",
+		strings.TrimRight(c.cfg.BaseURL, "/"), realm)
+
+	form := url.Values{}
+	form.Set("grant_type", "refresh_token")
+	form.Set("client_id", clientID)
+	form.Set("refresh_token", refreshToken)
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, tokenURL,
+		strings.NewReader(form.Encode()))
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+	resp, err := c.http.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("public refresh token request: %w", err)
+	}
+
+	var tr TokenResponse
+	if err := decodeOrError(resp, &tr); err != nil {
+		return nil, err
+	}
+	return &tr, nil
+}
+
+// LogoutPublic revokes the refresh token using a public client (no secret).
+func (c *Client) LogoutPublic(ctx context.Context, realm, clientID, refreshToken string) error {
+	logoutURL := fmt.Sprintf("%s/realms/%s/protocol/openid-connect/logout",
+		strings.TrimRight(c.cfg.BaseURL, "/"), realm)
+
+	form := url.Values{}
+	form.Set("client_id", clientID)
+	form.Set("refresh_token", refreshToken)
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, logoutURL,
+		strings.NewReader(form.Encode()))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+	resp, err := c.http.Do(req)
+	if err != nil {
+		return fmt.Errorf("public logout request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode >= 300 {
+		body, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("public logout returned %d: %s", resp.StatusCode, body)
+	}
+	return nil
+}
